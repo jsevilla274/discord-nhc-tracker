@@ -1,0 +1,17 @@
+{
+  "name": "discord-nhc-tracker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "type": "module",
+  "author": "jsevilla274",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "fast-xml-parser": "^4.2.5",
+    "winston": "^3.10.0"
+  }
+}
