@@ -6,6 +6,7 @@ import { PROJECT_ROOT_DIRNAME } from '../lib/utils.js';
 const varNames = [
     'DISCORD_BOT_TOKEN', 
     'DISCORD_ADMIN_ID',
+    'DISCORD_GUILD_CHANNEL_ID'
 ];
 
 let variablesSet = !!process.env[varNames[0]]; // if one is set, assume all are set
