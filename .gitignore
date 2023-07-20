@@ -10,3 +10,4 @@ node_modules/
 # Other
 dev/
 metadata.json
+.vscode/
