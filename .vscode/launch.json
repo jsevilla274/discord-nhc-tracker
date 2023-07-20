@@ -13,6 +13,16 @@
             ],
             "program": "${workspaceFolder}\\index.js",
             "outputCapture": "std"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Launch devscript.js",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}\\dev\\devscript.js",
+            "outputCapture": "std"
         }
     ]
 }
