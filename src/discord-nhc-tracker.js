@@ -16,7 +16,7 @@ export async function main() {
         const { 
             updatedCyclones, 
             trackableCycloneIds 
-        } = getTrackedCycloneUpdates(metadata.guildTrackedCycloneIds, metadata.cyclones, recentCycloneData);
+        } = calculateTrackedCycloneUpdates(metadata.guildTrackedCycloneIds, metadata.cyclones, recentCycloneData);
 
         metadata.guildTrackedCycloneIds = trackableCycloneIds;
 
@@ -45,7 +45,7 @@ export async function main() {
  * @param {nhc.Cyclone[]} recentCycloneData 
  * @returns {{updatedCyclones: nhc.Cyclone[], trackableCycloneIds: String[]}}
  */
-function getTrackedCycloneUpdates(trackedCycloneIds, oldCycloneData, recentCycloneData) {
+function calculateTrackedCycloneUpdates(trackedCycloneIds, oldCycloneData, recentCycloneData) {
     // transform arrays to map
     oldCycloneData = buildCycloneMap(oldCycloneData);
     recentCycloneData = buildCycloneMap(recentCycloneData);
@@ -170,7 +170,7 @@ async function sendGuildCycloneReports(cycloneData, lastReportMessageIds) {
             }]
         });
 
-        await discord.pinMessageInChannel(guildChannelId, message.id);
+        await discord.pinMessageInChannel(guildChannelId, message.id, true);
         reportMessageIds.push(message.id);
     }
 
