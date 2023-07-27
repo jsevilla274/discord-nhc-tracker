@@ -185,7 +185,8 @@ async function sendGuildCycloneReports(cycloneData, lastReportMessageIds) {
  * @returns {String} the message ID of the report message
  */
 async function sendAdminCycloneReport(cycloneData, lastReportMessageId) {
-    const noCyclonesFoundMessage = `There are no tropical cyclones at this time. Last updated: ${new Date().toLocaleDateString()}`;
+    const reportTime = new Date().toLocaleString();
+    const noCyclonesFoundMessage = `There are no tropical cyclones at this time. Last updated: ${reportTime}`;
     let message;
     let adminDMChannel = await discord.getDMChannel(process.env.DISCORD_ADMIN_ID);
     if (cycloneData.length > 0) {
@@ -195,10 +196,11 @@ async function sendAdminCycloneReport(cycloneData, lastReportMessageId) {
             const { type, name, wallet, atcf } = cyclone;
             formattedReportMessage += `## ${toTitleCase(type)} ${toTitleCase(name)} \`ATCF:${atcf}\`\n`;
             formattedReportMessage += nhc.getCycloneConeImageLink(wallet, atcf); // link for image embed w/o download
+            formattedReportMessage += '\n\n'; // add spacing
 
-            // add spacing after each report, but not on the last
-            if (i < cycloneData.length - 1) {
-                formattedReportMessage += '\n\n';
+            // append update time after last report
+            if (i === cycloneData.length - 1) {
+                formattedReportMessage += `Last updated: ${reportTime}`;
             }
         });
 
@@ -207,7 +209,7 @@ async function sendAdminCycloneReport(cycloneData, lastReportMessageId) {
             try {
                 await discord.deleteMessageInChannel(adminDMChannel.id, lastReportMessageId);
             } catch (error) {
-                logger.info(`Unable to delete discord message id:${messageId}. Reason:${error.message}`);
+                logger.info(`Unable to delete discord message id:${lastReportMessageId}. Reason:${error.message}`);
             }
         }
         message = await discord.createTextMessageInChannel(adminDMChannel.id, formattedReportMessage);
@@ -215,7 +217,7 @@ async function sendAdminCycloneReport(cycloneData, lastReportMessageId) {
         try {
             message = await discord.editTextMessageInChannel(adminDMChannel.id, lastReportMessageId, noCyclonesFoundMessage);
         } catch (error) {
-            logger.info(`Unable to edit discord message id:${messageId}. Reason:${error.message}`);
+            logger.info(`Unable to edit discord message id:${lastReportMessageId}. Reason:${error.message}`);
             message = await discord.createTextMessageInChannel(adminDMChannel.id, noCyclonesFoundMessage);
         }
     } else {
