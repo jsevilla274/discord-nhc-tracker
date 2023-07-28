@@ -2,7 +2,7 @@ import './setup-env.js';
 import process from 'node:process';
 import { readFile, writeFile } from 'fs/promises'
 import { join as pathJoin } from 'path';
-import { PROJECT_ROOT_DIRNAME, toTitleCase, dateDiffInDays } from '../lib/utils.js';
+import { PROJECT_ROOT_DIRNAME, toTitleCase, addDaysToDate } from '../lib/utils.js';
 import { logger } from './log.js';
 import * as nhc from '../lib/nhc.js';
 import * as discord from '../lib/discord.js';
@@ -26,11 +26,13 @@ export async function main() {
         }
     }
 
-    // send admin report only if last report occurred over a day ago
-    if (dateDiffInDays(metadata.adminReportTime, new Date()) > 0) {
+    // send admin report only if next report should occur
+    if (new Date() > new Date(metadata.adminReportNextTime)) {
         logger.info('Generating new admin cyclone report...');
         metadata.adminReportMessageId = await sendAdminCycloneReport(recentCycloneData, metadata.adminReportMessageId);
-        metadata.adminReportTime = new Date().toISOString();
+
+        let lastReportTimePlusOneDay = addDaysToDate(metadata.adminReportNextTime, 1);
+        metadata.adminReportNextTime = lastReportTimePlusOneDay.toISOString();
     }
     
     // update metadata.json
@@ -92,7 +94,7 @@ function buildCycloneMap(cycloneData) {
  * Stores information about data from the last time the script ran
  * @typedef {Object} Metadata
  * @property {nhc.Cyclone[]} cyclones - latest cyclone data
- * @property {String} adminReportTime - Represents last time "admin cyclone report" was generated. An ISO8061 UTC String
+ * @property {String} adminReportNextTime - Represents next time "admin cyclone report" will be generated. An ISO8061 UTC String
  * @property {String} adminReportMessageId - ID of the last admin cyclone report message sent in the admin channel
  * @property {String[]} guildTrackedCycloneIds - Cyclones to report to discord guild channel. IDs must be manually input.
  * @property {String[]} guildReportMessageIds - Last guild cyclone report message IDs generated. Used in for pinning.
@@ -117,7 +119,7 @@ async function loadMetadata() {
     } else {
         // set up metadata structure
         metadata = {
-            adminReportTime: new Date(0).toISOString(),
+            adminReportNextTime: new Date().toISOString(), // set next report time to now (i.e. so new report generated now)
             adminReportMessageId: null,
             guildTrackedCycloneIds: [],
             guildReportMessageIds: [],
