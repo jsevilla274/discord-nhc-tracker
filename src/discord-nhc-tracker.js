@@ -7,9 +7,17 @@ import { logger } from './log.js';
 import * as nhc from '../lib/nhc.js';
 import * as discord from '../lib/discord.js';
 
+const guildTrackCycloneCommand = '!nhctrack';
+let adminDMChannel = null;
+
 export async function main() {
     let metadata = await loadMetadata();
     let recentCycloneData = await nhc.getActiveCyclonesInBasinRSSFeed(nhc.Basin.ATLANTIC);
+
+    // check if any new guild tracked cyclones were added in admin channel
+    if (recentCycloneData.length > 0) {
+        metadata.guildTrackedCycloneIds = await getNewGuildTrackedCyclones(recentCycloneData);
+    }
     
     // send guild report only if tracked cyclones were updated
     if (metadata.guildTrackedCycloneIds.length > 0) {
@@ -31,13 +39,47 @@ export async function main() {
         logger.info('Generating new admin cyclone report...');
         metadata.adminReportMessageId = await sendAdminCycloneReport(recentCycloneData, metadata.adminReportMessageId);
 
-        let lastReportTimePlusOneDay = addDaysToDate(metadata.adminReportNextTime, 1);
-        metadata.adminReportNextTime = lastReportTimePlusOneDay.toISOString();
+        let tomorrowDateString = addDaysToDate(new Date(), 1).toISOString().substring(0, 10);
+        metadata.adminReportNextTime = `${tomorrowDateString}T08:00:00.000Z`; // @ 8am UTC
     }
     
     // update metadata.json
     metadata.cyclones = recentCycloneData;
     await saveMetadata(metadata);
+}
+
+async function getNewGuildTrackedCyclones(recentCycloneData) {
+    let newGuildTrackedCycloneIDs = [];
+
+    // read admin channel to find the most recent message with the track command
+    let adminDMChannel = await getAdminDMChannel();
+    let recentMessages = await discord.getMessagesInChannel(adminDMChannel.id, null, null, 10); // return only last 10 messages
+
+    let mostRecentMessageWithCommandContent = null;
+    let mostRecentMessageWithCommandDate = addDaysToDate(new Date(), -30); // only messages within the last month
+    recentMessages.forEach(message => {
+        if (!message.author.bot && new Date(message.timestamp) > mostRecentMessageWithCommandDate && message.content.includes(guildTrackCycloneCommand)) {
+            mostRecentMessageWithCommandContent = message.content;
+            mostRecentMessageWithCommandDate = new Date(message.timestamp);
+        }
+    });
+
+    // check if the most recent track command message has a valid ID (atcf)
+    if (mostRecentMessageWithCommandContent) {
+        let recentCycloneIDs = recentCycloneData.map((cyclone) => cyclone.atcf);
+        let messageWords = mostRecentMessageWithCommandContent.split(' ');
+        newGuildTrackedCycloneIDs = messageWords.filter((word) => recentCycloneIDs.includes(word.trim()));
+    }
+
+    return newGuildTrackedCycloneIDs;
+}
+
+async function getAdminDMChannel() {
+    if (!adminDMChannel) {
+        adminDMChannel = await discord.getDMChannel(process.env.DISCORD_ADMIN_ID);
+    }
+
+    return adminDMChannel;
 }
 
 /**
@@ -160,9 +202,9 @@ async function sendGuildCycloneReports(cycloneData, lastReportMessageIds) {
 
     // create a message for each cyclone report and pin it
     for (const cyclone of cycloneData) {
-        const { type, name, wallet, atcf } = cyclone;
+        const { type, name, seasonWallet, atcf } = cyclone;
         let formattedMessage = `## ${toTitleCase(type)} ${toTitleCase(name)} - Public Advisory Update`;
-        let imgData = await nhc.getCycloneConeImageData(wallet, atcf);
+        let imgData = await nhc.getCycloneConeImageData(seasonWallet, atcf);
         
         let message = await discord.createImageAttachmentMessageInChannel(guildChannelId, {
             messageContent: formattedMessage,
@@ -190,18 +232,19 @@ async function sendAdminCycloneReport(cycloneData, lastReportMessageId) {
     const reportTime = new Date().toLocaleString();
     const noCyclonesFoundMessage = `There are no tropical cyclones at this time. Last updated: ${reportTime}`;
     let message;
-    let adminDMChannel = await discord.getDMChannel(process.env.DISCORD_ADMIN_ID);
+    let adminDMChannel = await getAdminDMChannel();
     if (cycloneData.length > 0) {
         // build formatted report message
         let formattedReportMessage = '';
         cycloneData.forEach((cyclone, i) => {
-            const { type, name, wallet, atcf } = cyclone;
+            const { type, name, seasonWallet, atcf } = cyclone;
             formattedReportMessage += `## ${toTitleCase(type)} ${toTitleCase(name)} \`ATCF:${atcf}\`\n`;
-            formattedReportMessage += nhc.getCycloneConeImageLink(wallet, atcf); // link for image embed w/o download
+            formattedReportMessage += nhc.getCycloneConeImageLink(seasonWallet, atcf); // link for image embed w/o download
             formattedReportMessage += '\n\n'; // add spacing
 
-            // append update time after last report
+            // append update time & instructions after last report
             if (i === cycloneData.length - 1) {
+                formattedReportMessage += `Track cyclones in your guild by PMing me "${guildTrackCycloneCommand} <One or more ATCF IDs>"\n`
                 formattedReportMessage += `Last updated: ${reportTime}`;
             }
         });
