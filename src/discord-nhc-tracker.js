@@ -202,8 +202,13 @@ async function sendGuildCycloneReports(cycloneData, lastReportMessageIds) {
 
     // create a message for each cyclone report and pin it
     for (const cyclone of cycloneData) {
-        const { type, name, seasonWallet, atcf } = cyclone;
-        let formattedMessage = `## ${toTitleCase(type)} ${toTitleCase(name)} - Public Advisory Update`;
+        const { type, name, seasonWallet, atcf, hurricaneCategory } = cyclone;
+        
+        let formattedMessage = `## ${toTitleCase(type)} ${toTitleCase(name)} `;
+        if (hurricaneCategory > 0) {
+            formattedMessage += `(Category ${hurricaneCategory}) `;
+        }
+        formattedMessage += '- Public Advisory Update'
         let imgData = await nhc.getCycloneConeImageData(seasonWallet, atcf);
         
         let message = await discord.createImageAttachmentMessageInChannel(guildChannelId, {
@@ -235,19 +240,21 @@ async function sendAdminCycloneReport(cycloneData, lastReportMessageId) {
     let adminDMChannel = await getAdminDMChannel();
     if (cycloneData.length > 0) {
         // build formatted report message
-        let formattedReportMessage = '';
+        let formattedMessage = '';
         cycloneData.forEach((cyclone, i) => {
-            const { type, name, seasonWallet, atcf } = cyclone;
-            formattedReportMessage += `## ${toTitleCase(type)} ${toTitleCase(name)} \`ATCF:${atcf}\`\n`;
-            formattedReportMessage += nhc.getCycloneConeImageLink(seasonWallet, atcf); // link for image embed w/o download
-            formattedReportMessage += '\n\n'; // add spacing
-
-            // append update time & instructions after last report
-            if (i === cycloneData.length - 1) {
-                formattedReportMessage += `Track cyclones in your guild by PMing me "${guildTrackCycloneCommand} <One or more ATCF IDs>"\n`
-                formattedReportMessage += `Last updated: ${reportTime}`;
+            const { type, name, seasonWallet, atcf, hurricaneCategory } = cyclone;
+            formattedMessage += `## ${toTitleCase(type)} ${toTitleCase(name)} `;
+            if (hurricaneCategory > 0) {
+                formattedMessage += `(Category ${hurricaneCategory}) `;
             }
+            formattedMessage += `\`ATCF:${atcf}\`\n`
+            formattedMessage += nhc.getCycloneConeImageLink(seasonWallet, atcf); // link for image embed w/o download
+            formattedMessage += '\n\n'; // add spacing after one report
         });
+
+        // append update time & instructions after last report
+        formattedMessage += `_Track cyclones in your guild by PMing me "${guildTrackCycloneCommand} <One or more ATCF IDs>"_\n`
+        formattedMessage += `Last updated: ${reportTime}`;
 
         // delete previous report and send new message to force a notification
         if (lastReportMessageId) {
@@ -257,7 +264,7 @@ async function sendAdminCycloneReport(cycloneData, lastReportMessageId) {
                 logger.info(`Unable to delete discord message id:${lastReportMessageId}. Reason:${error.message}`);
             }
         }
-        message = await discord.createTextMessageInChannel(adminDMChannel.id, formattedReportMessage);
+        message = await discord.createTextMessageInChannel(adminDMChannel.id, formattedMessage);
     } else if (lastReportMessageId) {
         try {
             message = await discord.editTextMessageInChannel(adminDMChannel.id, lastReportMessageId, noCyclonesFoundMessage);
