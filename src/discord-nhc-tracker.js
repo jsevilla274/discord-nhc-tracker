@@ -26,6 +26,7 @@ export async function main() {
             trackableCycloneIds 
         } = calculateTrackedCycloneUpdates(metadata.guildTrackedCycloneIds, metadata.cyclones, recentCycloneData);
 
+        // update to include only trackable IDs
         metadata.guildTrackedCycloneIds = trackableCycloneIds;
 
         if (updatedCyclones.length > 0) {
@@ -83,7 +84,8 @@ async function getAdminDMChannel() {
 }
 
 /**
- * Returns cyclones that have been updated in recent cyclone data. Also returns the IDs of cyclones that are 
+ * Returns cyclones whose public advisory has updated since the last time. If it cannot find public advisory data, 
+ * it defaults to checking for updates using the cyclone summary GUID. Also returns the IDs of cyclones that are 
  * still present in recent cyclone data, and are trackable
  * @param {nhc.Cyclone[]} oldCycloneData 
  * @param {nhc.Cyclone[]} recentCycloneData 
@@ -105,8 +107,17 @@ function calculateTrackedCycloneUpdates(trackedCycloneIds, oldCycloneData, recen
             // still trackable
             trackableCycloneIds.push(atcfId);
 
-            // if we don't have existing data on the cyclone or updateGuid has changed, it has been updated
-            if (oldCyclone == null || oldCyclone.updateGuid !== recentCyclone.updateGuid) {
+            // measure updates
+            if (oldCyclone == null) {
+                // we don't have existing data on cyclone -> new cyclone
+                updatedCyclones.push(recentCyclone);
+            } else if (oldCyclone.hasOwnProperty('advisoryPubDate') && recentCyclone.hasOwnProperty('advisoryPubDate')) {
+                if (oldCyclone.advisoryPubDate !== recentCyclone.advisoryPubDate) {
+                    // advisory has updated, we have updated cyclone data
+                    updatedCyclones.push(recentCyclone);
+                }
+            } else if (oldCyclone.updateGuid !== recentCyclone.updateGuid) {
+                logger.info(`Unable to read advisoryPubDates, falling back to measuring updates via updateGuids`);
                 updatedCyclones.push(recentCyclone);
             }
         } // cyclone id is no longer in recent data -> untrackable
